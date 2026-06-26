@@ -3,6 +3,12 @@ CREATE TABLE IF NOT EXISTS users (
     full_name VARCHAR(100) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
+    role VARCHAR(50) DEFAULT 'user',
+    profile_image VARCHAR(500),
+    last_login TIMESTAMP WITH TIME ZONE,
+    account_status VARCHAR(50) DEFAULT 'Active',
+    preferred_database VARCHAR(100) DEFAULT 'PostgreSQL',
+    preferred_model VARCHAR(100) DEFAULT 'gpt-4o-mini',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -31,4 +37,33 @@ CREATE TABLE IF NOT EXISTS saved_queries (
     query_name VARCHAR(255) NOT NULL,
     sql_query TEXT NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS user_preferences (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+    theme VARCHAR(50) DEFAULT 'dark',
+    default_database VARCHAR(100) DEFAULT 'PostgreSQL',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS dashboard_statistics (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+    queries_run INTEGER DEFAULT 0,
+    queries_saved INTEGER DEFAULT 0,
+    schema_views INTEGER DEFAULT 0,
+    last_login TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS user_schemas (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    table_name VARCHAR(255) NOT NULL,
+    schema_definition JSONB NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, table_name)
 );

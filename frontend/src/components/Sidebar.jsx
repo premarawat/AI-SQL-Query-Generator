@@ -87,10 +87,7 @@ const Sidebar = ({ theme, toggleTheme, currentView, setCurrentView }) => {
           <User size={16} />
           <span style={{ fontSize: '0.9rem' }}>Profile</span>
         </a>
-        <a className="nav-item" style={{ padding: '0.5rem', marginBottom: '0.25rem' }}>
-          <Settings size={16} />
-          <span style={{ fontSize: '0.9rem' }}>Settings</span>
-        </a>
+
         
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
           <button 

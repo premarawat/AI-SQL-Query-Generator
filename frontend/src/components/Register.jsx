@@ -9,6 +9,7 @@ const Register = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [role, setRole] = useState('user');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -29,9 +30,13 @@ const Register = () => {
     setLoading(true);
 
     try {
-      const response = await axios.post('http://localhost:5000/api/auth/register', { fullName, email, password });
+      const response = await axios.post('http://localhost:4000/api/auth/register', { fullName, email, password, role });
       login(response.data.user, response.data.accessToken, response.data.refreshToken);
-      navigate('/');
+      
+      const userRole = response.data.user.role;
+      if (userRole === 'admin') navigate('/admin');
+      else if (userRole === 'database_manager') navigate('/db-manager');
+      else navigate('/');
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to register');
     } finally {
@@ -104,6 +109,22 @@ const Register = () => {
                 onChange={e => setConfirmPassword(e.target.value)}
                 style={{ border: 'none', background: 'transparent', color: 'var(--text-primary)', outline: 'none', width: '100%', paddingLeft: '0.75rem' }} 
               />
+            </div>
+          </div>
+
+          <div>
+            <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Role</label>
+            <div className="chat-input-wrapper" style={{ minHeight: 'auto', padding: '0.5rem 1rem' }}>
+              <User size={18} style={{ color: 'var(--text-secondary)' }} />
+              <select 
+                value={role} 
+                onChange={e => setRole(e.target.value)}
+                style={{ border: 'none', background: 'transparent', color: 'var(--text-primary)', outline: 'none', width: '100%', paddingLeft: '0.75rem' }}
+              >
+                <option value="user" style={{ color: '#000' }}>User</option>
+                <option value="database_manager" style={{ color: '#000' }}>Database Manager</option>
+                <option value="admin" style={{ color: '#000' }}>Admin</option>
+              </select>
             </div>
           </div>
 

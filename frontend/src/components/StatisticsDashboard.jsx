@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { BarChart3, Database, Activity, Clock } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -6,27 +6,57 @@ import {
 } from 'recharts';
 
 const StatisticsDashboard = () => {
-  const queryTypesData = [
-    { name: 'SELECT', value: 400 },
-    { name: 'UPDATE', value: 300 },
-    { name: 'INSERT', value: 300 },
-    { name: 'DELETE', value: 200 },
-  ];
+  const [stats, setStats] = useState({ queries_run: 0, queries_saved: 0, schema_views: 0, last_login: null });
+  const [loading, setLoading] = useState(true);
 
-  const dailyUsageData = [
-    { name: 'Mon', queries: 40 },
-    { name: 'Tue', queries: 30 },
-    { name: 'Wed', queries: 20 },
-    { name: 'Thu', queries: 27 },
-    { name: 'Fri', queries: 18 },
-    { name: 'Sat', queries: 23 },
-    { name: 'Sun', queries: 34 },
-  ];
+  const [queryTypesData, setQueryTypesData] = useState([]);
 
-  const COLORS = ['#0ea5e9', '#eab308', '#22c55e', '#ef4444'];
+  useEffect(() => {
+    const fetchStatsAndHistory = async () => {
+      try {
+        const { default: api } = await import('../api/axios');
+        const [statsRes, historyRes] = await Promise.all([
+          api.get('/profile/statistics'),
+          api.get('/queries/history')
+        ]);
+        setStats(statsRes.data);
+
+        // Calculate distribution
+        const history = historyRes.data || [];
+        const typeCount = {};
+        history.forEach(item => {
+          let sql = (item.generated_sql || '').trim().toUpperCase();
+          let type = 'OTHER';
+          if (sql.startsWith('SELECT')) type = 'SELECT';
+          else if (sql.startsWith('UPDATE')) type = 'UPDATE';
+          else if (sql.startsWith('INSERT')) type = 'INSERT';
+          else if (sql.startsWith('DELETE')) type = 'DELETE';
+          else if (sql.startsWith('CREATE')) type = 'CREATE';
+          else if (sql.startsWith('ALTER')) type = 'ALTER';
+          else if (sql.startsWith('DROP')) type = 'DROP';
+          else type = 'SELECT'; // Fallback for very simple prompts if needed
+
+          typeCount[type] = (typeCount[type] || 0) + 1;
+        });
+
+        const chartData = Object.keys(typeCount).map(key => ({
+          name: key,
+          value: typeCount[key]
+        }));
+        setQueryTypesData(chartData.length > 0 ? chartData : [{name: 'No Data', value: 1}]);
+      } catch (err) {
+        console.error('Failed to fetch statistics', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchStatsAndHistory();
+  }, []);
+
+  const COLORS = ['#0ea5e9', '#eab308', '#22c55e', '#ef4444', '#8b5cf6', '#f97316'];
 
   return (
-    <div style={{ padding: '2rem', maxWidth: '1000px', margin: '0 auto', width: '100%' }}>
+    <div style={{ padding: '2rem', maxWidth: '1000px', margin: '0 auto', width: '100%', height: '100%', overflowY: 'auto' }}>
       <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '2rem' }}>
         <BarChart3 className="sidebar-logo" /> Statistics Dashboard
       </h2>
@@ -36,52 +66,28 @@ const StatisticsDashboard = () => {
           <div style={{ color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <Activity size={18} /> Total Queries
           </div>
-          <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--accent-blue)' }}>1,200</div>
+          <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--accent-blue)' }}>{stats.totalQueries || 0}</div>
         </div>
         
         <div className="glass-panel" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           <div style={{ color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <CheckCircleIcon size={18} /> Executed
+            <CheckCircleIcon size={18} /> Queries Saved
           </div>
-          <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--success-color)' }}>850</div>
+          <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--success-color)' }}>{stats.savedQueries || 0}</div>
         </div>
 
         <div className="glass-panel" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           <div style={{ color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Clock size={18} /> Avg Time
+            <Clock size={18} /> Avg AI Response
           </div>
-          <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--warning-color)' }}>1.2s</div>
-        </div>
-
-        <div className="glass-panel" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          <div style={{ color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Database size={18} /> Tables
-          </div>
-          <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--accent-purple)' }}>12</div>
+          <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--warning-color)' }}>{stats.averageResponseTime || '0ms'}</div>
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1.5rem', maxWidth: '600px', margin: '0 auto' }}>
         <div className="glass-panel" style={{ padding: '1.5rem' }}>
-          <h3 style={{ marginBottom: '1.5rem', color: 'var(--text-primary)' }}>Daily Usage</h3>
-          <div style={{ height: '300px' }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={dailyUsageData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--panel-border)" />
-                <XAxis dataKey="name" stroke="var(--text-secondary)" />
-                <YAxis stroke="var(--text-secondary)" />
-                <Tooltip 
-                  contentStyle={{ background: 'var(--panel-bg)', borderColor: 'var(--panel-border)', borderRadius: '8px' }}
-                />
-                <Bar dataKey="queries" fill="var(--accent-blue)" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        <div className="glass-panel" style={{ padding: '1.5rem' }}>
-          <h3 style={{ marginBottom: '1.5rem', color: 'var(--text-primary)' }}>Query Types Distribution</h3>
-          <div style={{ height: '300px' }}>
+          <h3 style={{ marginBottom: '1.5rem', color: 'var(--text-primary)', textAlign: 'center' }}>Query Types Distribution</h3>
+          <div style={{ height: '350px' }}>
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie

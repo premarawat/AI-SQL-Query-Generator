@@ -12,9 +12,65 @@ import {
   ShieldAlert,
   Zap
 } from 'lucide-react';
+import api from '../api/axios';
 
 const AnalysisPanel = ({ result }) => {
   const [selectedOption, setSelectedOption] = useState(0);
+  const [isExecuted, setIsExecuted] = useState(false);
+  const [isExecuting, setIsExecuting] = useState(false);
+
+  const handleExecute = async () => {
+    setIsExecuting(true);
+    
+    if (result.intent === 'CREATE' && result.schemaDefinition) {
+      try {
+        await api.post('/schema', {
+          name: result.schemaDefinition.name,
+          columns: result.schemaDefinition.columns
+        });
+        
+        const saved = sessionStorage.getItem('db_schema');
+        const currentSchema = saved ? JSON.parse(saved) : [];
+        
+        const updatedSchema = [...currentSchema.filter(t => t.name !== result.schemaDefinition.name), result.schemaDefinition];
+        sessionStorage.setItem('db_schema', JSON.stringify(updatedSchema));
+      } catch (err) {
+        console.error('Error saving schema to backend:', err);
+      }
+    }
+
+    setTimeout(() => {
+      setIsExecuting(false);
+      setIsExecuted(true);
+    }, 800);
+  };
+
+  const handleDownload = () => {
+    const element = document.createElement("a");
+    const file = new Blob([result.options[selectedOption].sql], {type: 'text/plain'});
+    element.href = URL.createObjectURL(file);
+    element.download = "query.sql";
+    document.body.appendChild(element);
+    element.click();
+  };
+
+  const handleSave = async () => {
+    try {
+      await api.post('/queries/saved', {
+        query_name: result.requirement.substring(0, 50),
+        sql_query: result.options[selectedOption].sql
+      });
+      alert('Query saved successfully!');
+    } catch (err) {
+      console.error(err);
+      alert('Failed to save query');
+    }
+  };
+
+  const handleRegenerate = () => {
+    // Just toggle options to simulate a regeneration
+    setSelectedOption(prev => prev === 0 ? 1 : 0);
+  };
 
   const getIntentColor = (intent) => {
     switch (intent) {
@@ -67,7 +123,7 @@ const AnalysisPanel = ({ result }) => {
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ color: 'var(--text-secondary)' }}>Attributes:</span>
-              <span style={{ fontWeight: 500 }}>Salary, EmployeeID, Name</span>
+              <span style={{ fontWeight: 500 }}>{result.attributes || 'Salary, EmployeeID, Name'}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ color: 'var(--text-secondary)' }}>Relationships:</span>
@@ -89,7 +145,7 @@ const AnalysisPanel = ({ result }) => {
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ color: 'var(--text-secondary)' }}>Est. Rows Returned:</span>
-              <span style={{ fontWeight: 500 }}>~150</span>
+              <span style={{ fontWeight: 500 }}>{result.estRows || '~150'}</span>
             </div>
             {result.riskLevel !== 'Safe' && (
               <div style={{ marginTop: '0.5rem', padding: '0.75rem', background: 'var(--warning-bg)', color: 'var(--warning-color)', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', display: 'flex', gap: '0.5rem' }}>
@@ -152,36 +208,63 @@ const AnalysisPanel = ({ result }) => {
             <Info size={16} /> Plain English Explanation
           </h4>
           <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-            This query retrieves the <strong>EmployeeID</strong>, <strong>Name</strong>, and <strong>Salary</strong> from the <strong>Employee</strong> table, but only includes rows where the <strong>Salary</strong> is strictly greater than 50,000.
+            {result.explanation || 'This query retrieves the EmployeeID, Name, and Salary from the Employee table, but only includes rows where the Salary is strictly greater than 50,000.'}
           </p>
         </div>
       </div>
 
       {/* J. Actions */}
       <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
-        <button className="glass-button">
+        <button className="glass-button" onClick={handleRegenerate}>
           <RefreshCw size={16} /> Regenerate
         </button>
-        <button className="glass-button">
+        <button className="glass-button" onClick={handleDownload}>
           <Download size={16} /> Download
         </button>
-        <button className="glass-button">
+        <button className="glass-button" onClick={handleSave}>
           <Save size={16} /> Save
         </button>
-        <button className="btn-primary">
-          <Play size={16} /> Execute Query
+        <button className="btn-primary" onClick={handleExecute} disabled={isExecuting}>
+          {isExecuting ? <RefreshCw size={16} /> : <Play size={16} />} 
+          {isExecuting ? 'Executing...' : 'Execute Query'}
         </button>
       </div>
 
       {/* I. Results Mockup */}
-      <div className="glass-panel" style={{ padding: '1.5rem', opacity: 0.7 }}>
+      <div className="glass-panel" style={{ padding: '1.5rem', opacity: isExecuted ? 1 : 0.7, transition: 'opacity 0.3s' }}>
         <div className="card-header">
           <Database size={18} />
-          <span>Query Execution Result (Preview)</span>
+          <span>Query Execution Result {isExecuted ? '' : '(Preview)'}</span>
         </div>
-        <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-          Click "Execute Query" to fetch and display the results in a data table with pagination, sorting, and export features.
-        </p>
+        
+        {isExecuting ? (
+          <div style={{ color: 'var(--accent-blue)', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <RefreshCw size={16} /> Running query on database...
+          </div>
+        ) : !isExecuted ? (
+          <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+            Click "Execute Query" to fetch and display the results in a data table with pagination, sorting, and export features.
+          </p>
+        ) : result.intent === 'CREATE' ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--success-color)' }}>
+             <CheckCircle size={16} /> Table successfully created.
+          </div>
+        ) : (
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem', textAlign: 'left' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--panel-border)' }}>
+                <th style={{ padding: '0.5rem 0' }}>EmployeeID</th>
+                <th style={{ padding: '0.5rem 0' }}>Name</th>
+                <th style={{ padding: '0.5rem 0' }}>Salary</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}><td style={{ padding: '0.5rem 0' }}>101</td><td style={{ padding: '0.5rem 0' }}>John Doe</td><td style={{ padding: '0.5rem 0' }}>65000.00</td></tr>
+              <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}><td style={{ padding: '0.5rem 0' }}>102</td><td style={{ padding: '0.5rem 0' }}>Jane Smith</td><td style={{ padding: '0.5rem 0' }}>72000.00</td></tr>
+              <tr><td style={{ padding: '0.5rem 0' }}>105</td><td style={{ padding: '0.5rem 0' }}>Alice Johnson</td><td style={{ padding: '0.5rem 0' }}>58000.00</td></tr>
+            </tbody>
+          </table>
+        )}
       </div>
 
     </div>

@@ -8,10 +8,14 @@ import StatisticsDashboard from './components/StatisticsDashboard';
 import QueryHistory from './components/QueryHistory';
 import Login from './components/Login';
 import Register from './components/Register';
+import AdminDashboard from './components/AdminDashboard';
+import DatabaseManagerDashboard from './components/DatabaseManagerDashboard';
+import SavedQueries from './components/SavedQueries';
+import Profile from './components/Profile';
 import { useAuth } from './context/AuthContext';
 import { Bookmark, User } from 'lucide-react';
 
-const ProtectedRoute = ({ children }) => {
+const ProtectedRoute = ({ children, allowedRoles }) => {
   const { user, loading } = useAuth();
   const location = useLocation();
 
@@ -20,6 +24,22 @@ const ProtectedRoute = ({ children }) => {
   if (!user) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
+  
+  // Default legacy users to 'user' role
+  const userRole = user.role || 'user';
+
+  if (allowedRoles && !allowedRoles.includes(userRole)) {
+    // If they are admin/db_manager trying to access the user dashboard, send them to their respective dashboard
+    if (userRole === 'admin') return <Navigate to="/admin" replace />;
+    if (userRole === 'database_manager') return <Navigate to="/db-manager" replace />;
+    
+    // Otherwise, show access denied
+    return (
+      <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center', color: 'var(--danger-color)' }}>
+        <h2>403 Access Denied</h2>
+      </div>
+    );
+  }
 
   return children;
 };
@@ -27,6 +47,7 @@ const ProtectedRoute = ({ children }) => {
 function MainLayout() {
   const [theme, setTheme] = useState('dark');
   const [currentView, setCurrentView] = useState('chat');
+  const [activePrompt, setActivePrompt] = useState('');
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -46,30 +67,12 @@ function MainLayout() {
       />
       
       <main className="main-content">
-        {currentView === 'chat' && <ChatArea />}
-        {currentView === 'history' && <QueryHistory />}
-        {currentView === 'saved' && (
-          <div style={{ padding: '2rem', maxWidth: '1000px', margin: '0 auto', width: '100%' }}>
-            <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '2rem' }}>
-              <Bookmark className="sidebar-logo" /> Saved Queries
-            </h2>
-            <div className="glass-panel" style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
-              No saved queries yet. Run a query and click "Save" to keep it here.
-            </div>
-          </div>
-        )}
+        {currentView === 'chat' && <ChatArea initialPrompt={activePrompt} setInitialPrompt={setActivePrompt} />}
+        {currentView === 'history' && <QueryHistory onReRun={(prompt) => { setActivePrompt(prompt); setCurrentView('chat'); }} />}
+        {currentView === 'saved' && <SavedQueries onReRun={(prompt) => { setActivePrompt(prompt); setCurrentView('chat'); }} />}
         {currentView === 'schema' && <SchemaExplorer />}
         {currentView === 'stats' && <StatisticsDashboard />}
-        {currentView === 'profile' && (
-          <div style={{ padding: '2rem', maxWidth: '1000px', margin: '0 auto', width: '100%' }}>
-            <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '2rem' }}>
-              <User className="sidebar-logo" /> Profile
-            </h2>
-            <div className="glass-panel" style={{ padding: '2rem', color: 'var(--text-primary)' }}>
-              <h3>Profile features coming soon.</h3>
-            </div>
-          </div>
-        )}
+        {currentView === 'profile' && <Profile />}
       </main>
     </div>
   );
@@ -81,9 +84,25 @@ function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route 
+        path="/admin" 
+        element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <AdminDashboard />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/db-manager" 
+        element={
+          <ProtectedRoute allowedRoles={['database_manager']}>
+            <DatabaseManagerDashboard />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
         path="/*" 
         element={
-          <ProtectedRoute>
+          <ProtectedRoute allowedRoles={['user']}>
             <MainLayout />
           </ProtectedRoute>
         } 
