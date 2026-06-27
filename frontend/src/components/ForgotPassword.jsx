@@ -1,23 +1,36 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
-import { Database, Mail, ArrowLeft, Loader2 } from 'lucide-react';
+import { Database, Lock, Mail, Key } from 'lucide-react';
 
 const ForgotPassword = () => {
+  const [step, setStep] = useState(1);
   const [email, setEmail] = useState('');
+  const [token, setToken] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleForgotSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setSuccess('');
     setLoading(true);
 
     try {
-      await axios.post('http://localhost:4000/api/auth/forgot-password', { email });
-      // Go to verify OTP and pass the email
-      navigate('/verify-otp', { state: { email } });
+      const response= await axios.post(
+    `${import.meta.env.VITE_API_URL}/api/auth/forgot-password`,
+    { email }
+);
+      setSuccess(response.data.message);
+      // For mock purposes, the backend sends the token in the response so we can test the reset flow easily.
+      if (response.data.resetToken) {
+        setToken(response.data.resetToken);
+      }
+      setStep(2);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to send reset link');
     } finally {
@@ -25,68 +38,123 @@ const ForgotPassword = () => {
     }
   };
 
+  const handleResetSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+    setLoading(true);
+
+    try {
+      const response = await axios.post('http://localhost:4000/api/auth/reset-password', { token, newPassword });
+      setSuccess(response.data.message);
+      setStep(3);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to reset password');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center' }}>
-      <div className="glass-panel" style={{ width: '100%', maxWidth: '400px', padding: '2rem', animation: 'fadeIn 0.3s ease-out' }}>
+      <div className="glass-panel" style={{ width: '100%', maxWidth: '400px', padding: '2rem' }}>
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <Database size={48} className="sidebar-logo" style={{ margin: '0 auto', marginBottom: '1rem' }} />
-          <h2 className="gradient-text">Forgot Password</h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '0.5rem' }}>
-            Enter your email to receive a secure 6-digit OTP
+          <h2 className="gradient-text">
+            {step === 1 ? 'Forgot Password' : step === 2 ? 'Reset Password' : 'Password Reset'}
+          </h2>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+            {step === 1 ? 'Enter your email to receive a reset link' : step === 2 ? 'Enter your reset token and new password' : ''}
           </p>
         </div>
 
-        {error && (
-          <div style={{ padding: '0.75rem', background: 'var(--danger-bg)', color: 'var(--danger-color)', borderRadius: 'var(--radius-sm)', marginBottom: '1.5rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>{error}</span>
-          </div>
+        {error && <div style={{ padding: '0.75rem', background: 'var(--danger-bg)', color: 'var(--danger-color)', borderRadius: 'var(--radius-sm)', marginBottom: '1rem', fontSize: '0.85rem' }}>{error}</div>}
+        {success && <div style={{ padding: '0.75rem', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', borderRadius: 'var(--radius-sm)', marginBottom: '1rem', fontSize: '0.85rem' }}>{success}</div>}
+
+        {step === 1 && (
+          <form onSubmit={handleForgotSubmit}>
+            <div style={{ marginBottom: '1.5rem' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Email Address</label>
+              <div style={{ position: 'relative' }}>
+                <Mail size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 2.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', color: 'var(--text-primary)', outline: 'none' }}
+                  required
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              className="action-button"
+              style={{ width: '100%', padding: '0.75rem', borderRadius: 'var(--radius-md)', background: 'var(--accent-blue)', color: 'white', border: 'none', cursor: 'pointer', fontWeight: '500' }}
+              disabled={loading}
+            >
+              {loading ? 'Sending...' : 'Send Reset Link'}
+            </button>
+
+            <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
+              <Link to="/login" style={{ color: 'var(--accent-blue)', fontSize: '0.85rem', textDecoration: 'none' }}>Back to Login</Link>
+            </div>
+          </form>
         )}
 
-        <form onSubmit={handleForgotSubmit}>
-          <div style={{ marginBottom: '1.5rem' }}>
-            <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Email Address</label>
-            <div style={{ position: 'relative' }}>
-              <Mail size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
-              <input 
-                type="email" 
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 2.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', color: 'var(--text-primary)', outline: 'none', transition: 'border-color 0.2s' }}
-                placeholder="john@example.com"
-                required
-                disabled={loading}
-              />
+        {step === 2 && (
+          <form onSubmit={handleResetSubmit}>
+            <div style={{ marginBottom: '1.25rem' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Reset Token</label>
+              <div style={{ position: 'relative' }}>
+                <Key size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
+                <input
+                  type="text"
+                  value={token}
+                  onChange={(e) => setToken(e.target.value)}
+                  style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 2.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', color: 'var(--text-primary)', outline: 'none' }}
+                  required
+                />
+              </div>
             </div>
-          </div>
 
-          <button 
-            type="submit" 
-            className="action-button"
-            style={{ width: '100%', padding: '0.75rem', borderRadius: 'var(--radius-md)', background: 'var(--accent-blue)', color: 'white', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', fontWeight: '500', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', opacity: loading ? 0.7 : 1, transition: 'all 0.2s' }}
-            disabled={loading}
-          >
-            {loading ? <Loader2 size={18} className="spin" /> : 'Send OTP'}
-          </button>
-          
-          <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
-            <Link to="/login" style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', transition: 'color 0.2s' }} onMouseEnter={(e) => e.target.style.color = 'var(--accent-blue)'} onMouseLeave={(e) => e.target.style.color = 'var(--text-secondary)'}>
-              <ArrowLeft size={14} /> Back to Login
-            </Link>
+            <div style={{ marginBottom: '1.5rem' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>New Password</label>
+              <div style={{ position: 'relative' }}>
+                <Lock size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 2.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', color: 'var(--text-primary)', outline: 'none' }}
+                  required
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              className="action-button"
+              style={{ width: '100%', padding: '0.75rem', borderRadius: 'var(--radius-md)', background: 'var(--accent-blue)', color: 'white', border: 'none', cursor: 'pointer', fontWeight: '500' }}
+              disabled={loading}
+            >
+              {loading ? 'Resetting...' : 'Reset Password'}
+            </button>
+          </form>
+        )}
+
+        {step === 3 && (
+          <div style={{ textAlign: 'center' }}>
+            <button
+              onClick={() => navigate('/login')}
+              className="action-button"
+              style={{ width: '100%', padding: '0.75rem', borderRadius: 'var(--radius-md)', background: 'var(--accent-blue)', color: 'white', border: 'none', cursor: 'pointer', fontWeight: '500', marginTop: '1rem' }}
+            >
+              Go to Login
+            </button>
           </div>
-        </form>
+        )}
       </div>
-      <style>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .spin {
-          animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-          100% { transform: rotate(360deg); }
-        }
-      `}</style>
     </div>
   );
 };

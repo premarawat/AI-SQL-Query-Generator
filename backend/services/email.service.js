@@ -11,6 +11,15 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+// Verify SMTP configuration
+transporter.verify((error, success) => {
+  if (error) {
+    console.error('SMTP Configuration Error:', error);
+  } else {
+    console.log('SMTP Server is configured and ready');
+  }
+});
+
 /**
  * Sends an OTP email to the user for password reset.
  * @param {string} toEmail 
@@ -42,8 +51,8 @@ const sendPasswordResetEmail = async (toEmail, userName, otp) => {
     await transporter.sendMail(mailOptions);
     console.log(`Email sent to ${toEmail}`);
   } catch (error) {
-    console.error('Error sending email:', error);
-    throw new Error('Could not send email');
+    console.error('SMTP Error sending email:', error);
+    throw new Error('SMTP_ERROR');
   }
 };
 
