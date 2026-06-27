@@ -18,9 +18,13 @@ const AnalysisPanel = ({ result }) => {
   const [selectedOption, setSelectedOption] = useState(0);
   const [isExecuted, setIsExecuted] = useState(false);
   const [isExecuting, setIsExecuting] = useState(false);
+  const [executionResult, setExecutionResult] = useState(null);
+  const [executionError, setExecutionError] = useState(null);
 
   const handleExecute = async () => {
     setIsExecuting(true);
+    setExecutionResult(null);
+    setExecutionError(null);
     
     if (result.intent === 'CREATE' && result.schemaDefinition) {
       try {
@@ -39,10 +43,15 @@ const AnalysisPanel = ({ result }) => {
       }
     }
 
-    setTimeout(() => {
+    try {
+      const response = await api.post('/queries/run', { sql: result.options[selectedOption].sql });
+      setExecutionResult(response.data);
+    } catch (err) {
+      setExecutionError(err.response?.data?.message || err.message || 'Error executing query');
+    } finally {
       setIsExecuting(false);
       setIsExecuted(true);
-    }, 800);
+    }
   };
 
   const handleDownload = () => {
@@ -249,21 +258,59 @@ const AnalysisPanel = ({ result }) => {
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--success-color)' }}>
              <CheckCircle size={16} /> Table successfully created.
           </div>
+        ) : executionError ? (
+          <div style={{ padding: '1rem', background: 'var(--danger-bg)', color: 'var(--danger-color)', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>
+            <AlertTriangle size={18} style={{ flexShrink: 0, marginTop: '0.1rem' }} />
+            <div style={{ wordBreak: 'break-word', whiteSpace: 'pre-wrap', fontFamily: 'monospace' }}>
+              {executionError}
+            </div>
+          </div>
+        ) : executionResult && executionResult.type === 'SELECT' ? (
+          (!executionResult.rows || executionResult.rows.length === 0) ? (
+            <div style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+              No records found.
+            </div>
+          ) : (
+            <div style={{ overflowX: 'auto', borderRadius: 'var(--radius-md)', border: '1px solid var(--panel-border)' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem', textAlign: 'left' }}>
+                <thead style={{ background: 'rgba(0,0,0,0.2)' }}>
+                  <tr style={{ borderBottom: '1px solid var(--panel-border)' }}>
+                    {executionResult.columns && executionResult.columns.map((field, idx) => (
+                      <th key={idx} style={{ padding: '0.75rem 1rem', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
+                        {field}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {executionResult.rows.map((row, rowIdx) => (
+                    <tr key={rowIdx} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,0.02)'} onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+                      {executionResult.columns && executionResult.columns.map((field, colIdx) => (
+                        <td key={colIdx} style={{ padding: '0.75rem 1rem', color: 'var(--text-secondary)' }}>
+                          {row[field] !== null && row[field] !== undefined ? String(row[field]) : <span style={{ color: 'rgba(255,255,255,0.3)', fontStyle: 'italic' }}>null</span>}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
+        ) : executionResult ? (
+          <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem', background: 'rgba(16, 185, 129, 0.05)', border: '1px solid rgba(16, 185, 129, 0.2)', borderRadius: 'var(--radius-md)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--success-color)', fontWeight: 500 }}>
+              <CheckCircle size={18} /> {executionResult.message || `${executionResult.type} executed successfully.`}
+            </div>
+            {executionResult.rowCount !== undefined && (
+               <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', paddingLeft: '1.75rem' }}>
+                 Rows affected: <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{executionResult.rowCount}</span>
+               </div>
+            )}
+          </div>
         ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem', textAlign: 'left' }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid var(--panel-border)' }}>
-                <th style={{ padding: '0.5rem 0' }}>EmployeeID</th>
-                <th style={{ padding: '0.5rem 0' }}>Name</th>
-                <th style={{ padding: '0.5rem 0' }}>Salary</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}><td style={{ padding: '0.5rem 0' }}>101</td><td style={{ padding: '0.5rem 0' }}>John Doe</td><td style={{ padding: '0.5rem 0' }}>65000.00</td></tr>
-              <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}><td style={{ padding: '0.5rem 0' }}>102</td><td style={{ padding: '0.5rem 0' }}>Jane Smith</td><td style={{ padding: '0.5rem 0' }}>72000.00</td></tr>
-              <tr><td style={{ padding: '0.5rem 0' }}>105</td><td style={{ padding: '0.5rem 0' }}>Alice Johnson</td><td style={{ padding: '0.5rem 0' }}>58000.00</td></tr>
-            </tbody>
-          </table>
+          <div style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+            Execution completed.
+          </div>
         )}
       </div>
 

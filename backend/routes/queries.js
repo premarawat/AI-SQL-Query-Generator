@@ -65,6 +65,70 @@ router.post('/execute', async (req, res) => {
   }
 });
 
+// Run raw SQL
+router.post('/run', async (req, res) => {
+  const { sql } = req.body;
+  if (!sql) return res.status(400).json({ message: 'SQL query is required' });
+  
+  try {
+    console.log("Executing SQL:", sql);
+    const result = await pool.query(sql);
+    console.log(result);
+    
+    const command = result.command || 'UNKNOWN';
+    const rowCount = result.rowCount || 0;
+    
+    if (command === 'SELECT' || (result.rows && result.rows.length > 0)) {
+       return res.json({
+         success: true,
+         type: "SELECT",
+         rows: result.rows,
+         rowCount: rowCount,
+         columns: result.fields ? result.fields.map(f => f.name) : []
+       });
+    } else if (command === 'INSERT') {
+       return res.json({
+         success: true,
+         type: "INSERT",
+         rowCount: rowCount,
+         message: "Record inserted successfully."
+       });
+    } else if (command === 'UPDATE') {
+       return res.json({
+         success: true,
+         type: "UPDATE",
+         rowCount: rowCount,
+         message: "Record updated successfully."
+       });
+    } else if (command === 'DELETE') {
+       return res.json({
+         success: true,
+         type: "DELETE",
+         rowCount: rowCount,
+         message: "Record deleted successfully."
+       });
+    } else if (command === 'CREATE') {
+       return res.json({ success: true, type: "CREATE", message: "Table created successfully." });
+    } else if (command === 'ALTER') {
+       return res.json({ success: true, type: "ALTER", message: "Table altered successfully." });
+    } else if (command === 'DROP') {
+       return res.json({ success: true, type: "DROP", message: "Table dropped successfully." });
+    }
+    
+    // Default fallback
+    res.json({
+      success: true,
+      type: command,
+      rows: result.rows || [],
+      fields: result.fields ? result.fields.map(f => f.name) : [],
+      rowCount: rowCount
+    });
+  } catch (err) {
+    console.error('Error executing SQL:', err);
+    res.status(400).json({ message: err.message });
+  }
+});
+
 // Delete a query history item
 router.delete('/history/:id', async (req, res) => {
   try {
