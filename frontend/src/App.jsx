@@ -7,6 +7,9 @@ import SchemaExplorer from './components/SchemaExplorer';
 import StatisticsDashboard from './components/StatisticsDashboard';
 import QueryHistory from './components/QueryHistory';
 import Login from './components/Login';
+import ForgotPassword from './components/ForgotPassword';
+import VerifyOTP from './components/VerifyOTP';
+import ResetPassword from './components/ResetPassword';
 import Register from './components/Register';
 import AdminDashboard from './components/AdminDashboard';
 import DatabaseManagerDashboard from './components/DatabaseManagerDashboard';
@@ -82,6 +85,9 @@ function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/verify-otp" element={<VerifyOTP />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/register" element={<Register />} />
       <Route 
         path="/admin" 

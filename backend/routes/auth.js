@@ -2,6 +2,8 @@ const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { pool } = require('../db');
+const { forgotPassword, verifyOTP, resetPassword } = require('../controllers/auth.controller');
+const { forgotPasswordLimiter, verifyOTPLimiter } = require('../middlewares/rateLimiter');
 const router = express.Router();
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your_super_secret_jwt_key_here';
@@ -221,18 +223,9 @@ router.post('/refresh', async (req, res) => {
   }
 });
 
-// 5. Forgot / Reset Password (Mock flow)
-router.post('/forgot-password', async (req, res) => {
-  const { email } = req.body;
-  // In a real app, generate a token, save to DB, and email it. Here we just pretend.
-  res.json({ message: 'If that email exists, a reset link has been sent.', resetToken: 'mock-reset-token-123' });
-});
-
-router.post('/reset-password', async (req, res) => {
-  const { token, newPassword } = req.body;
-  if (!token || !newPassword) return res.status(400).json({ message: 'Token and new password required.' });
-  // For the sake of this mock, just accept it and tell user to login
-  res.json({ message: 'Password reset successful. Please login.' });
-});
+// 5. Forgot Password Flow
+router.post('/forgot-password', forgotPasswordLimiter, forgotPassword);
+router.post('/verify-otp', verifyOTPLimiter, verifyOTP);
+router.post('/reset-password', resetPassword);
 
 module.exports = router;
