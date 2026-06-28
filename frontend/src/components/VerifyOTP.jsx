@@ -68,7 +68,7 @@ const VerifyOTP = () => {
     }
 
     try {
-      await axios.post(`${import.meta.env.VITE_API_URL}/api/login`, { email, otp });
+      await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/verify-otp`, { email, otp });
       // Success, go to reset password
       navigate('/reset-password', { state: { email } });
     } catch (err) {
@@ -86,10 +86,7 @@ const VerifyOTP = () => {
     setResendLoading(true);
     
     try {
-      await axios.post(
-    `${import.meta.env.VITE_API_URL}/api/auth/verify-otp`,
-    { email, otp }
-);
+      await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/forgot-password`, { email });
       // Reset timers
       setTimeLeft(600);
       setResendCooldown(60);

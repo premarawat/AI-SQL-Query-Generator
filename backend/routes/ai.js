@@ -1,15 +1,11 @@
 const express = require('express');
 const { OpenAI } = require('openai');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { pool } = require('../db');
 const authMiddleware = require('../middleware/authMiddleware');
 const router = express.Router();
 
 router.use(authMiddleware);
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-  baseURL: process.env.OPENAI_MODEL?.includes('gemini') ? 'https://generativelanguage.googleapis.com/v1beta/openai/' : undefined,
-});
 
 router.post('/generate', async (req, res) => {
   const { prompt, currentSchema } = req.body;
@@ -38,18 +34,44 @@ Current Schema: ${JSON.stringify(currentSchema || [])}
 `;
 
     const startTime = Date.now();
-    const response = await openai.chat.completions.create({
-      model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: systemMessage },
-        { role: 'user', content: prompt }
-      ],
-      response_format: { type: 'json_object' }
-    });
+    let resultText = '';
+
+    if (process.env.GEMINI_API_KEY) {
+      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+      const modelName = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+      
+      const model = genAI.getGenerativeModel({
+        model: modelName,
+        generationConfig: { responseMimeType: "application/json" }
+      });
+      
+      const fullPrompt = systemMessage + "\n\nUser Prompt: " + prompt;
+      const response = await model.generateContent(fullPrompt);
+      resultText = response.response.text();
+    } else {
+      const openai = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY,
+      });
+      const response = await openai.chat.completions.create({
+        model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: systemMessage },
+          { role: 'user', content: prompt }
+        ],
+        response_format: { type: 'json_object' }
+      });
+      resultText = response.choices[0].message.content;
+    }
+
     const endTime = Date.now();
     const aiResponseTime = endTime - startTime;
 
-    const result = JSON.parse(response.choices[0].message.content);
+    // Clean up potential markdown formatting (```json ... ```)
+    let cleanedText = resultText.trim();
+    if (cleanedText.startsWith('```')) {
+      cleanedText = cleanedText.replace(/^```(json)?\n/, '').replace(/\n```$/, '');
+    }
+    const result = JSON.parse(cleanedText);
     
     // Save to query_history
     const historyRes = await pool.query(

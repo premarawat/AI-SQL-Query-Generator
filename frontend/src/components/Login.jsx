@@ -48,10 +48,7 @@ const Login = () => {
     setLoading(true);
 
     try {
-      const response = await axios.post(
-  `${import.meta.env.VITE_API_URL}/api/auth/login`,
-  data
-);
+      const response = await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/login`, { email, password, role });
       
       // If unlocked just now on success, show a nice toast (optional, we use alert for simplicity here or let it pass)
       if (response.data.unlockedStatus) {

@@ -29,7 +29,7 @@ api.interceptors.response.use(
           throw new Error('No refresh token available');
         }
 
-        const res = await axios.post('http://localhost:4000/api/auth/refresh', { refreshToken });
+        const res = await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/refresh`, { refreshToken });
         
         sessionStorage.setItem('accessToken', res.data.accessToken);
         sessionStorage.setItem('refreshToken', res.data.refreshToken);

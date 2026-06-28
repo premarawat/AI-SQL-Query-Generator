@@ -30,10 +30,7 @@ const Register = () => {
     setLoading(true);
 
     try {
-      const response = await axios.post(
-  `${import.meta.env.VITE_API_URL}/api/auth/register`,
-  data
-);
+      const response = await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/register`, { fullName, email, password, role });
       login(response.data.user, response.data.accessToken, response.data.refreshToken);
       
       const userRole = response.data.user.role;
