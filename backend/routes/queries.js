@@ -108,6 +108,50 @@ router.post('/run', async (req, res) => {
          message: "Record deleted successfully."
        });
     } else if (command === 'CREATE') {
+       // Attempt to sync the created table to user_schemas automatically
+       try {
+         const match = sql.match(/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?["']?([a-zA-Z0-9_]+)["']?/i);
+         if (match) {
+           const tableName = match[1];
+           
+           // Fetch columns from PostgreSQL information_schema
+           const colRes = await pool.query(`
+             SELECT 
+                 c.column_name, 
+                 c.data_type,
+                 CASE WHEN tc.constraint_type = 'PRIMARY KEY' THEN true ELSE false END as is_pk,
+                 CASE WHEN tc.constraint_type = 'FOREIGN KEY' THEN true ELSE false END as is_fk
+             FROM information_schema.columns c
+             LEFT JOIN information_schema.key_column_usage kcu
+                 ON c.table_name = kcu.table_name 
+                 AND c.column_name = kcu.column_name
+             LEFT JOIN information_schema.table_constraints tc
+                 ON kcu.constraint_name = tc.constraint_name
+                 AND tc.constraint_type IN ('PRIMARY KEY', 'FOREIGN KEY')
+             WHERE c.table_name = $1
+           `, [tableName]);
+
+           if (colRes.rows.length > 0) {
+             const columns = colRes.rows.map(r => ({
+               name: r.column_name,
+               type: r.data_type,
+               isPk: r.is_pk,
+               isFk: r.is_fk
+             }));
+
+             // Save the schema into user_schemas
+             await pool.query(
+               `INSERT INTO user_schemas (user_id, table_name, schema_definition) 
+                VALUES ($1, $2, $3) 
+                ON CONFLICT (user_id, table_name) 
+                DO UPDATE SET schema_definition = EXCLUDED.schema_definition`,
+               [req.user.userId, tableName, { name: tableName, columns }]
+             );
+           }
+         }
+       } catch (err) {
+         console.error('Error auto-syncing schema on CREATE:', err);
+       }
        return res.json({ success: true, type: "CREATE", message: "Table created successfully." });
     } else if (command === 'ALTER') {
        return res.json({ success: true, type: "ALTER", message: "Table altered successfully." });
