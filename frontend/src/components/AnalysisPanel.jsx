@@ -20,8 +20,23 @@ const AnalysisPanel = ({ result }) => {
   const [isExecuting, setIsExecuting] = useState(false);
   const [executionResult, setExecutionResult] = useState(null);
   const [executionError, setExecutionError] = useState(null);
+  const sqlOptions = result?.options || [];
+
+const selectedSql =
+  sqlOptions[selectedOption]?.sql ||
+  result?.generatedSQL ||
+  result?.sql ||
+  "";
+
+const selectedTitle =
+  sqlOptions[selectedOption]?.title ||
+  "Generated SQL";
 
   const handleExecute = async () => {
+    if (!selectedSql) {
+  alert("No SQL available to execute.");
+  return;
+}
     setIsExecuting(true);
     setExecutionResult(null);
     setExecutionError(null);
@@ -44,7 +59,9 @@ const AnalysisPanel = ({ result }) => {
     }
 
     try {
-      const response = await api.post('/queries/run', { sql: result.options[selectedOption].sql });
+      const response = await api.post('/queries/run', {
+  sql: selectedSql
+});
       setExecutionResult(response.data);
     } catch (err) {
       setExecutionError(err.response?.data?.message || err.message || 'Error executing query');
@@ -56,7 +73,7 @@ const AnalysisPanel = ({ result }) => {
 
   const handleDownload = () => {
     const element = document.createElement("a");
-    const file = new Blob([result.options[selectedOption].sql], {type: 'text/plain'});
+ const file = new Blob([selectedSql], {type: 'text/plain'});
     element.href = URL.createObjectURL(file);
     element.download = "query.sql";
     document.body.appendChild(element);
@@ -67,7 +84,7 @@ const AnalysisPanel = ({ result }) => {
     try {
       await api.post('/queries/saved', {
         query_name: result.requirement.substring(0, 50),
-        sql_query: result.options[selectedOption].sql
+        sql_query: selectedSql
       });
       alert('Query saved successfully!');
     } catch (err) {
@@ -76,10 +93,11 @@ const AnalysisPanel = ({ result }) => {
     }
   };
 
-  const handleRegenerate = () => {
-    // Just toggle options to simulate a regeneration
-    setSelectedOption(prev => prev === 0 ? 1 : 0);
-  };
+ const handleRegenerate = () => {
+  alert(
+    "Regenerate will be connected to the AI endpoint in the next module."
+  );
+};
 
   const getIntentColor = (intent) => {
     switch (intent) {
@@ -128,11 +146,13 @@ const AnalysisPanel = ({ result }) => {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ color: 'var(--text-secondary)' }}>Tables Involved:</span>
-              <span style={{ fontWeight: 500 }}>{result.tables.join(', ')}</span>
+              <span style={{ fontWeight: 500 }}>{result.tables?.length
+  ? result.tables.join(", ")
+  : "No tables detected"}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ color: 'var(--text-secondary)' }}>Attributes:</span>
-              <span style={{ fontWeight: 500 }}>{result.attributes || 'Salary, EmployeeID, Name'}</span>
+              <span style={{ fontWeight: 500 }}>{result.attributes || "No attributes detected"}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ color: 'var(--text-secondary)' }}>Relationships:</span>
@@ -192,23 +212,36 @@ const AnalysisPanel = ({ result }) => {
           <span>Generated SQL Queries</span>
         </div>
         
-        <div className="tabs">
-          {result.options.map((opt, idx) => (
-            <button 
-              key={idx}
-              className={`tab ${selectedOption === idx ? 'active' : ''}`}
-              onClick={() => setSelectedOption(idx)}
-            >
-              {opt.title}
-            </button>
-          ))}
-        </div>
+      <div className="tabs">
+  {sqlOptions.length > 0 ? (
+    sqlOptions.map((opt, idx) => (
+      <button
+        key={idx}
+        className={`tab ${selectedOption === idx ? 'active' : ''}`}
+        onClick={() => setSelectedOption(idx)}
+      >
+        {opt.title}
+      </button>
+    ))
+  ) : (
+    <button className="tab active">
+      Generated SQL
+    </button>
+  )}
+</div>
 
         <div className="code-block" style={{ marginBottom: '1rem' }}>
-          <button className="copy-btn" title="Copy SQL">
+          <button
+  className="copy-btn"
+  title="Copy SQL"
+  onClick={() => {
+    navigator.clipboard.writeText(selectedSql);
+    alert("SQL copied to clipboard!");
+  }}
+>
             <Copy size={16} />
           </button>
-          <pre>{result.options[selectedOption].sql}</pre>
+         <pre>{selectedSql || "No SQL generated."}</pre>
         </div>
 
         {/* E. Explanation */}
@@ -256,7 +289,9 @@ const AnalysisPanel = ({ result }) => {
           </p>
         ) : result.intent === 'CREATE' ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--success-color)' }}>
-             <CheckCircle size={16} /> Table successfully created.
+             <CheckCircle size={16} /> {result.schemaDefinition?.name
+  ? `${result.schemaDefinition.name} created successfully.`
+  : "Table created successfully."}
           </div>
         ) : executionError ? (
           <div style={{ padding: '1rem', background: 'var(--danger-bg)', color: 'var(--danger-color)', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>

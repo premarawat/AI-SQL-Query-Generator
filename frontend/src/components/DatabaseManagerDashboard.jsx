@@ -16,6 +16,9 @@ import { Bookmark } from 'lucide-react';
 const DatabaseManagerDashboard = () => {
   const [theme, setTheme] = useState('dark');
   const [currentView, setCurrentView] = useState('dashboard');
+  useEffect(() => {
+  console.log("Current View:", currentView);
+}, [currentView]);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -32,9 +35,23 @@ const DatabaseManagerDashboard = () => {
         setCurrentView={setCurrentView}
       />
       
-      <main className="main-content">
+        <main className="main-content">
+  <h1 style={{ color: "red", fontSize: "30px" }}>
+    Current View = {currentView}
+  </h1>
         {currentView === 'dashboard' && <DMDashboardOverview />}
-        {currentView === 'chat' && <ChatArea />}
+      {currentView === 'chat' && (
+  <div
+    style={{
+      color: "white",
+      fontSize: "40px",
+      padding: "50px",
+      background: "red"
+    }}
+  >
+    CHAT VIEW WORKING
+  </div>
+)}
         {currentView === 'schema' && <SchemaExplorer />}
         {currentView === 'history' && <QueryHistory />}
         {currentView === 'saved' && (
